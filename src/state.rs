@@ -64,7 +64,7 @@ pub enum BrotliDecoderErrorCode{
   BROTLI_DECODER_ERROR_UNREACHABLE = -31,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BrotliRunningState {
   BROTLI_STATE_UNINITED,
   BROTLI_STATE_LARGE_WINDOW_BITS,

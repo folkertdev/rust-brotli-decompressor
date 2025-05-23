@@ -7,6 +7,7 @@
 #![allow(non_upper_case_globals)]
 #![cfg_attr(feature="no-stdlib-ffi-binding",cfg_attr(not(feature="std"), feature(lang_items)))]
 #![cfg_attr(feature="no-stdlib-ffi-binding",cfg_attr(not(feature="std"), feature(panic_handler)))]
+#![feature(loop_match)]
 
 
 #[macro_use]

@@ -2675,21 +2675,24 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
     local_input = &saved_buffer[..];
     s.br.next_in = 0;
   }
+  #[loop_match]
   'outer: loop {
-    'outer_blk: {
+    result = 'outer_blk: {
       macro_rules! const_continue_outer {
           ($e:expr) => {
-              result = $e;
-              continue 'outer;
+              #[const_continue]
+              break 'outer_blk $e;
           }
       }
       match result {
       BrotliDecoderErrorCode::BROTLI_DECODER_SUCCESS => {
         let mut state = s.state;
+        #[loop_match]
         'inner: loop {
             state = 'blk: {
               macro_rules! const_continue_inner {
                   ($e:expr) => {
+                      #[const_continue]
                       break 'blk $e;
                   }
               }
