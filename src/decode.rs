@@ -2682,7 +2682,6 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
         'inner: loop {
             macro_rules! const_continue_inner {
                 ($e:expr) => {
-                    s.state = $e;
                     state = $e;
                     continue 'inner;
                 }
@@ -2757,12 +2756,10 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                   break;
                 }
                 if s.is_metadata != 0 {
-                  s.state = BrotliRunningState::BROTLI_STATE_METADATA;
                   state = BrotliRunningState::BROTLI_STATE_METADATA;
                   break 'inner;
                 }
                 if s.meta_block_remaining_len == 0 {
-                  s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
                   state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
                   break 'inner;
                 }
@@ -2771,12 +2768,10 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                   break;
                 }
                 if s.is_uncompressed != 0 {
-                  s.state = BrotliRunningState::BROTLI_STATE_UNCOMPRESSED;
                   state = BrotliRunningState::BROTLI_STATE_UNCOMPRESSED;
                   break 'inner;
                 }
                 s.loop_counter = 0;
-                s.state = BrotliRunningState::BROTLI_STATE_HUFFMAN_CODE_0;
                 state = BrotliRunningState::BROTLI_STATE_HUFFMAN_CODE_0;
                 break 'inner;
               }
@@ -2793,7 +2788,6 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                   BrotliDecoderErrorCode::BROTLI_DECODER_SUCCESS => {}
                   _ => break,
                 }
-                s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
                 state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
                 break 'inner;
               }
@@ -2808,14 +2802,12 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                   s.meta_block_remaining_len -= 1;
                 }
                 if let BrotliDecoderErrorCode::BROTLI_DECODER_SUCCESS = result {
-                  s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
                   state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
                 }
                 break 'inner;
               }
               BrotliRunningState::BROTLI_STATE_HUFFMAN_CODE_0 => {
                 if s.loop_counter >= 3 {
-                  s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_HEADER_2;
                   state = BrotliRunningState::BROTLI_STATE_METABLOCK_HEADER_2;
                   break 'inner;
                 }
@@ -2903,7 +2895,6 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                   block_length_out;
                 BROTLI_LOG_UINT!(s.block_type_length_state.block_length[s.loop_counter as usize]);
                 s.loop_counter += 1;
-                s.state = BrotliRunningState::BROTLI_STATE_HUFFMAN_CODE_0;
                 state = BrotliRunningState::BROTLI_STATE_HUFFMAN_CODE_0;
                 break 'inner;
               }
@@ -2938,6 +2929,7 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                 const_continue_inner!(BrotliRunningState::BROTLI_STATE_CONTEXT_MAP_1);
               }
               BrotliRunningState::BROTLI_STATE_CONTEXT_MAP_1 => {
+                s.state = state;
                 result =
                   DecodeContextMap((fast!((s.block_type_length_state.num_block_types)[0]) as usize) <<
                                    kLiteralContextBits as usize,
@@ -2964,6 +2956,7 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                   } else {
                       num_distance_codes
                   };
+                  s.state = state;
                   result =
                     DecodeContextMap((fast!((s.block_type_length_state.num_block_types)[2]) as usize) <<
                                      kDistanceContextBits as usize,
@@ -3047,7 +3040,6 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                      */
                   s.htree_command_index = 0;
                   // look it up each time s.literal_htree=s.literal_hgroup.htrees[s.literal_htree_index];
-                  s.state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
                   state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
                 }
                 break 'inner;
@@ -3064,7 +3056,6 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                   result = SafeProcessCommands(s, local_input);
                   state = s.state;
                 }
-                assert_eq!(state, s.state);
                 break 'inner;
               }
               BrotliRunningState::BROTLI_STATE_COMMAND_INNER_WRITE |
@@ -3085,35 +3076,29 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                 if s.ringbuffer_size == 1 << s.window_bits {
                   s.max_distance = s.max_backward_distance;
                 }
-                match s.state {
+                match state {
                   BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRITE_1 => {
                     if (s.meta_block_remaining_len <= 0) {
                       // Next metablock, if any
-                      s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
                       state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
                     } else {
-                      s.state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
                       state = BrotliRunningState::BROTLI_STATE_COMMAND_BEGIN;
                     }
                     break 'inner;
                   }
                   BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRITE_2 => {
-                    s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY;
                     state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_WRAP_COPY;
                   }
                   _ => {
                     // BROTLI_STATE_COMMAND_INNER_WRITE
                     if (s.loop_counter == 0) {
                       if (s.meta_block_remaining_len <= 0) {
-                        s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
                         state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
                       } else {
-                        s.state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_DECODE_LITERALS;
                         state = BrotliRunningState::BROTLI_STATE_COMMAND_POST_DECODE_LITERALS;
                       }
                       break;
                     }
-                    s.state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER;
                     state = BrotliRunningState::BROTLI_STATE_COMMAND_INNER;
                   }
                 }
@@ -3122,7 +3107,6 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
               BrotliRunningState::BROTLI_STATE_METABLOCK_DONE => {
                 s.BrotliStateCleanupAfterMetablock();
                 if (s.is_last_metablock == 0) {
-                  s.state = BrotliRunningState::BROTLI_STATE_METABLOCK_BEGIN;
                   state = BrotliRunningState::BROTLI_STATE_METABLOCK_BEGIN;
                   break 'inner;
                 }
@@ -3154,7 +3138,7 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
               }
             }
          }
-         assert_eq!(s.state, state);
+        s.state = state;
       }
       BrotliDecoderErrorCode::BROTLI_DECODER_NEEDS_MORE_INPUT => {
         if s.ringbuffer.slice().len() != 0 {
