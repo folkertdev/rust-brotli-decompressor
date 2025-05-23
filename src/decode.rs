@@ -2676,7 +2676,14 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
     s.br.next_in = 0;
   }
   'outer: loop {
-    match result {
+    'outer_blk: {
+      macro_rules! const_continue_outer {
+          ($e:expr) => {
+              result = $e;
+              continue 'outer;
+          }
+      }
+      match result {
       BrotliDecoderErrorCode::BROTLI_DECODER_SUCCESS => {
         let mut state = s.state;
         'inner: loop {
@@ -2692,9 +2699,8 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                       continue 'outer;
                   }};
                   ($e:expr) => {
-                      result = $e;
                       s.state = state;
-                      continue 'outer;
+                      const_continue_outer!($e);
                   }
               }
               match state {
@@ -2809,7 +2815,7 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
                 if let BrotliDecoderErrorCode::BROTLI_DECODER_SUCCESS = result {
                   state = BrotliRunningState::BROTLI_STATE_METABLOCK_DONE;
                   break_inner!(BrotliDecoderErrorCode::BROTLI_DECODER_SUCCESS);
-                } else { 
+                } else {
                   break_inner!(result);
                 }
               }
@@ -3164,15 +3170,13 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
             // is expanded byte-by-byte until it is enough to complete read.
             s.buffer_length = 0;
             // Switch to input stream and restart.
-            result = BrotliDecoderErrorCode::BROTLI_DECODER_SUCCESS;
             local_input = xinput;
             s.br.avail_in = *available_in as u32;
             s.br.next_in = *input_offset as u32;
-            continue 'outer;
+            const_continue_outer!(BrotliDecoderErrorCode::BROTLI_DECODER_SUCCESS);
           } else if *available_in != 0 {
             // Not enough data in buffer, but can take one more byte from
             // input stream.
-            result = BrotliDecoderErrorCode::BROTLI_DECODER_SUCCESS;
             let new_byte = fast!((xinput)[*input_offset]);
             fast_mut!((s.buffer)[s.buffer_length as usize]) = new_byte;
             // we did the following copy upfront, so we wouldn't have to do it here
@@ -3184,7 +3188,7 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
             (*available_in) -= 1;
             // Retry with more data in buffer.
             // we can't re-borrow the saved buffer...so we have to do this recursively
-            continue 'outer;
+            const_continue_outer!(BrotliDecoderErrorCode::BROTLI_DECODER_SUCCESS);
           }
           // Can't finish reading and no more input.
 
@@ -3224,7 +3228,7 @@ pub fn BrotliDecompressStream<AllocU8: alloc::Allocator<u8>,
         }
         break 'outer;
       }
-    }
+    } }
   }
 
   SaveErrorCode!(s, result)
